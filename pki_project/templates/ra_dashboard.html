@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}RA Dashboard — PKI System{% endblock %}
+{% block nav_links %}
+<div class="nav-links">
+  <span class="role-chip ra">RA</span>
+  <span style="color:var(--text-dim);font-size:13px;margin:0 8px;">{{ session.full_name }}</span>
+  <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm">LOGOUT</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="main">
+  <div class="page-header">
+    <h1>Registration Authority</h1>
+    <p>Verify user identities and manage certificate signing requests</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card warn"><div class="stat-value" id="stat-pending">—</div><div class="stat-label">Pending Review</div></div>
+    <div class="stat-card accent"><div class="stat-value" id="stat-approved">—</div><div class="stat-label">Forwarded to CA</div></div>
+    <div class="stat-card danger"><div class="stat-value" id="stat-rejected">—</div><div class="stat-label">Rejected</div></div>
+  </div>
+
+  <!-- WORKFLOW -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">RA Role in PKI Workflow</div>
+    <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;padding:16px;background:rgba(255,107,53,0.07);border-radius:8px;border:1px solid rgba(255,107,53,0.2);">
+        <div style="color:var(--warn);font-size:13px;font-weight:700;margin-bottom:8px;">📥 RECEIVE</div>
+        <p class="text-muted" style="font-size:12px;">Receive certificate signing requests from registered users with their CSR data</p>
+      </div>
+      <div style="flex:1;min-width:200px;padding:16px;background:rgba(255,107,53,0.07);border-radius:8px;border:1px solid rgba(255,107,53,0.2);">
+        <div style="color:var(--warn);font-size:13px;font-weight:700;margin-bottom:8px;">🔍 VERIFY</div>
+        <p class="text-muted" style="font-size:12px;">Verify the identity of the requester and validate the information in the CSR</p>
+      </div>
+      <div style="flex:1;min-width:200px;padding:16px;background:rgba(255,107,53,0.07);border-radius:8px;border:1px solid rgba(255,107,53,0.2);">
+        <div style="color:var(--warn);font-size:13px;font-weight:700;margin-bottom:8px;">📤 FORWARD</div>
+        <p class="text-muted" style="font-size:12px;">Approve and forward verified requests to the Certificate Authority for signing</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUESTS TABLE -->
+  <div class="card">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>📋 Certificate Requests Queue</span>
+      <button class="btn btn-ghost btn-sm" onclick="loadRequests()">↻ Refresh</button>
+    </div>
+    <div id="alert-ra"></div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Requester</th>
+            <th>Common Name</th>
+            <th>Organization</th>
+            <th>Email</th>
+            <th>Submitted</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="requests-tbody">
+          <tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:40px;"><span class="loader"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div id="review-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div class="modal-title">🔍 Review Request</div>
+      <button onclick="closeModal()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:20px;">✕</button>
+    </div>
+    <div id="review-details"></div>
+    <div class="separator"></div>
+    <div class="form-group">
+      <label class="form-label">Notes / Reason (optional)</label>
+      <textarea id="review-notes" class="form-control" rows="3" placeholder="Add verification notes or rejection reason..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="submitReview('reject')">✗ Reject Request</button>
+      <button class="btn btn-success" onclick="submitReview('approve')">✓ Approve & Forward to CA</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentReqId = null;
+
+async function loadRequests() {
+  const reqs = await api('/api/ra/requests');
+  const tbody = document.getElementById('requests-tbody');
+  
+  let pending = 0, approved = 0, rejected = 0;
+  
+  if (!reqs.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:40px;">No pending requests</td></tr>';
+  } else {
+    tbody.innerHTML = reqs.map(r => {
+      if(r.status==='pending') pending++;
+      else if(r.status==='ra_approved') approved++;
+      return `
+        <tr>
+          <td class="mono text-muted">#${r.id}</td>
+          <td><strong>${r.full_name}</strong></td>
+          <td>${r.common_name || '—'}</td>
+          <td>${r.organization || r.user_org || '—'}</td>
+          <td class="text-muted" style="font-size:12px;">${r.email || r.user_email || '—'}</td>
+          <td class="text-muted" style="font-size:12px;">${fmtDate(r.submitted_at)}</td>
+          <td><span class="status status-${r.status}">${r.status.replace('_',' ').toUpperCase()}</span></td>
+          <td style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="viewCSR(${r.id})">👁 View CSR</button>
+            ${r.status==='pending'?`<button class="btn btn-primary btn-sm" onclick="openReview(${r.id},'${r.full_name}','${r.common_name}','${r.organization||r.user_org||''}','${r.email||r.user_email||''}')">Review</button>`:''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+  document.getElementById('stat-pending').textContent = pending;
+  document.getElementById('stat-approved').textContent = approved;
+  document.getElementById('stat-rejected').textContent = rejected;
+}
+
+function openReview(id, name, cn, org, email) {
+  currentReqId = id;
+  document.getElementById('review-notes').value = '';
+  document.getElementById('review-details').innerHTML = `
+    <div class="cert-viewer" style="margin-bottom:16px;">
+      <div class="cert-field"><span class="cert-key">REQUESTER</span><span class="cert-val">${name}</span></div>
+      <div class="cert-field"><span class="cert-key">COMMON NAME</span><span class="cert-val">${cn}</span></div>
+      <div class="cert-field"><span class="cert-key">ORGANIZATION</span><span class="cert-val">${org || '—'}</span></div>
+      <div class="cert-field"><span class="cert-key">EMAIL</span><span class="cert-val">${email}</span></div>
+      <div class="cert-field"><span class="cert-key">REQUEST ID</span><span class="cert-val">#${id}</span></div>
+    </div>
+    <div class="alert alert-info" style="font-size:12px;">
+      ℹ️ As RA, verify the requester's identity before approving. Approved requests will be forwarded to CA for certificate signing.
+    </div>
+  `;
+  document.getElementById('review-modal').classList.remove('hidden');
+}
+
+async function submitReview(action) {
+  const notes = document.getElementById('review-notes').value;
+  const d = await api(`/api/ra/review/${currentReqId}`, 'POST', {action, notes});
+  if (d.success) {
+    closeModal();
+    showAlert('alert-ra','success', action==='approve' ? '✓ Request approved and forwarded to CA' : '✗ Request rejected');
+    loadRequests();
+  }
+}
+
+async function viewCSR(id) {
+  const reqs = await api('/api/ra/requests');
+  const req = reqs.find(r=>r.id===id);
+  if (!req) return;
+  alert('CSR Data:\n\n' + (req.csr_data || 'Not available'));
+}
+
+function closeModal() { document.getElementById('review-modal').classList.add('hidden'); }
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
+
+loadRequests();
+setInterval(loadRequests, 30000); // Auto-refresh every 30s
+</script>
+{% endblock %}

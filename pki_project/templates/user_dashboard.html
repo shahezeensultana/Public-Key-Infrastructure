@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}User Dashboard — PKI System{% endblock %}
+{% block nav_links %}
+<div class="nav-links">
+  <span class="role-chip user">USER</span>
+  <span style="color:var(--text-dim);font-size:13px;margin:0 8px;">{{ session.full_name }}</span>
+  <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm">LOGOUT</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="main">
+  <div class="page-header">
+    <h1>User Portal</h1>
+    <p>Manage your digital certificates and cryptographic keys</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid" id="stats-area">
+    <div class="stat-card green"><div class="stat-value" id="stat-active">—</div><div class="stat-label">Active Certificates</div></div>
+    <div class="stat-card warn"><div class="stat-value" id="stat-pending">—</div><div class="stat-label">Pending Requests</div></div>
+    <div class="stat-card accent"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total Issued</div></div>
+  </div>
+
+  <!-- WORKFLOW -->
+  <div class="card mb-8" style="margin-bottom:20px;">
+    <div class="card-title">PKI Workflow</div>
+    <div class="workflow">
+      <div class="wf-step">
+        <div class="wf-icon user">👤</div>
+        <div class="wf-label">1. GENERATE<br>KEY PAIR</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-icon user">📋</div>
+        <div class="wf-label">2. SUBMIT<br>CSR</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-icon ra">🔍</div>
+        <div class="wf-label">3. RA<br>VERIFIES</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-icon ca">🏛️</div>
+        <div class="wf-label">4. CA<br>SIGNS</div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-icon user">📜</div>
+        <div class="wf-label">5. CERT<br>ISSUED</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="display:flex;gap:4px;margin-bottom:20px;background:rgba(0,0,0,0.3);border-radius:10px;padding:4px;width:fit-content;">
+    <button class="tab-btn active" onclick="showTab('keys')">🔑 Key Pair</button>
+    <button class="tab-btn" onclick="showTab('csr')">📋 Request Cert</button>
+    <button class="tab-btn" onclick="showTab('certs')">📜 My Certificates</button>
+    <button class="tab-btn" onclick="showTab('status')">📊 Request Status</button>
+  </div>
+
+  <!-- KEY PAIR TAB -->
+  <div id="tab-keys" class="tab-panel">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🔑 Generate RSA Key Pair</div>
+        <p class="text-muted" style="margin-bottom:16px;">Generate a 2048-bit RSA key pair. Your private key will be shown once — save it securely.</p>
+        <button class="btn btn-primary" onclick="generateKeyPair()" id="btn-genkey">
+          <span id="genkey-icon">⚡</span> Generate Key Pair
+        </button>
+        <div id="alert-keys" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">ℹ️ About Key Pairs</div>
+        <div class="cert-viewer" style="font-size:11px;line-height:2;">
+          <div class="cert-field"><span class="cert-key">ALGORITHM</span><span class="cert-val">RSA-2048</span></div>
+          <div class="cert-field"><span class="cert-key">KEY SIZE</span><span class="cert-val">2048 bits</span></div>
+          <div class="cert-field"><span class="cert-key">PURPOSE</span><span class="cert-val">Digital Signatures &amp; Encryption</span></div>
+          <div class="cert-field"><span class="cert-key">SECURITY</span><span class="cert-val">PKCS#1 v1.5 / OAEP</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="keypair-result" class="hidden" style="margin-top:20px;">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="color:var(--accent2);">🔓 Public Key</div>
+          <textarea class="form-control" id="pub-key-display" rows="8" readonly style="font-size:11px;"></textarea>
+        </div>
+        <div class="card" style="border-color:rgba(255,107,53,0.4);">
+          <div class="card-title" style="color:var(--warn);">🔒 Private Key — SAVE SECURELY</div>
+          <textarea class="form-control" id="priv-key-display" rows="8" readonly style="font-size:11px;border-color:rgba(255,107,53,0.3);"></textarea>
+          <p class="text-muted" style="margin-top:8px;">⚠️ Never share your private key with anyone</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSR TAB -->
+  <div id="tab-csr" class="tab-panel hidden">
+    <div class="card" style="max-width:640px;">
+      <div class="card-title">📋 Certificate Signing Request (CSR)</div>
+      <p class="text-muted" style="margin-bottom:20px;">Fill in your information. A CSR will be generated and submitted to the RA for verification.</p>
+      <div id="alert-csr"></div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Common Name (CN)</label>
+          <input type="text" id="csr-cn" class="form-control" placeholder="Your full name or domain">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Organization (O)</label>
+          <input type="text" id="csr-org" class="form-control" placeholder="Your organization">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="csr-email" class="form-control" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country Code</label>
+          <input type="text" id="csr-country" class="form-control" placeholder="IN" maxlength="2">
+        </div>
+      </div>
+      <button class="btn btn-success" onclick="submitCSR()">📤 Submit CSR to RA</button>
+      <div id="csr-result" class="hidden" style="margin-top:16px;">
+        <div class="card-title" style="margin-top:16px;color:var(--accent2);">Generated CSR</div>
+        <textarea class="form-control" id="csr-display" rows="8" readonly style="font-size:11px;"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- CERTIFICATES TAB -->
+  <div id="tab-certs" class="tab-panel hidden">
+    <div class="card">
+      <div class="card-title flex justify-between items-center">
+        <span>📜 My Issued Certificates</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadCerts()">↻ Refresh</button>
+      </div>
+      <div id="alert-certs"></div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr><th>Common Name</th><th>Serial</th><th>Valid From</th><th>Expires</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="certs-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:32px;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS TAB -->
+  <div id="tab-status" class="tab-panel hidden">
+    <div class="card">
+      <div class="card-title flex justify-between items-center">
+        <span>📊 Certificate Request Status</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadStatus()">↻ Refresh</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr><th>Common Name</th><th>Organization</th><th>Submitted</th><th>Status</th><th>Notes</th></tr>
+          </thead>
+          <tbody id="status-tbody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:32px;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CERT VIEWER MODAL -->
+<div id="cert-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div class="modal-title">🔐 Certificate Viewer</div>
+      <button onclick="document.getElementById('cert-modal').classList.add('hidden')" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:20px;">✕</button>
+    </div>
+    <div id="cert-modal-content"></div>
+  </div>
+</div>
+
+<style>
+.tab-btn {
+  padding:9px 18px; border-radius:7px; border:none; cursor:pointer;
+  font-size:12px; font-weight:700; letter-spacing:1px;
+  color:var(--text-dim); background:none; transition:all 0.2s;
+  font-family:'Exo 2',sans-serif;
+}
+.tab-btn.active { background:rgba(0,212,255,0.15); color:var(--accent); }
+.tab-btn:hover:not(.active) { color:var(--text); background:rgba(255,255,255,0.05); }
+.mb-8 { margin-bottom:32px; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load stats
+async function loadStats() {
+  const d = await api('/api/user/stats');
+  document.getElementById('stat-active').textContent = d.active_certs;
+  document.getElementById('stat-pending').textContent = d.pending_requests;
+  document.getElementById('stat-total').textContent = d.total_certs;
+}
+
+function showTab(t) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.remove('hidden');
+  event.target.classList.add('active');
+  if (t === 'certs') loadCerts();
+  if (t === 'status') loadStatus();
+}
+
+async function generateKeyPair() {
+  const btn = document.getElementById('btn-genkey');
+  btn.innerHTML = '<span class="loader"></span> Generating...';
+  btn.disabled = true;
+  const d = await api('/api/user/generate-keypair', 'POST');
+  if (d.success) {
+    document.getElementById('pub-key-display').value = d.public_key;
+    document.getElementById('priv-key-display').value = d.private_key;
+    document.getElementById('keypair-result').classList.remove('hidden');
+    showAlert('alert-keys','success','RSA-2048 key pair generated and saved!');
+  }
+  btn.innerHTML = '⚡ Generate Key Pair';
+  btn.disabled = false;
+  loadStats();
+}
+
+async function submitCSR() {
+  const data = {
+    common_name: document.getElementById('csr-cn').value,
+    organization: document.getElementById('csr-org').value,
+    email: document.getElementById('csr-email').value,
+    country: document.getElementById('csr-country').value || 'IN',
+  };
+  if (!data.common_name || !data.email) {
+    showAlert('alert-csr','error','Please fill Common Name and Email'); return;
+  }
+  const d = await api('/api/user/submit-csr', 'POST', data);
+  if (d.success) {
+    document.getElementById('csr-display').value = d.csr;
+    document.getElementById('csr-result').classList.remove('hidden');
+    showAlert('alert-csr','success','CSR submitted successfully! Awaiting RA verification.');
+    loadStats();
+  } else {
+    showAlert('alert-csr','error', d.message || 'Error submitting CSR');
+  }
+}
+
+async function loadCerts() {
+  const certs = await api('/api/user/certificates');
+  const tbody = document.getElementById('certs-tbody');
+  if (!certs.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:32px;">No certificates issued yet</td></tr>'; return;
+  }
+  tbody.innerHTML = certs.map(c => `
+    <tr>
+      <td><strong>${c.common_name || '—'}</strong></td>
+      <td class="mono" style="font-size:11px;color:var(--accent);">${(c.serial_number||'').substr(0,16)}...</td>
+      <td class="text-muted">${fmtDate(c.valid_from)}</td>
+      <td class="text-muted">${fmtDate(c.valid_to)}</td>
+      <td><span class="status status-${c.status}">${c.status.toUpperCase()}</span></td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="viewCert(${c.id}, '${c.serial_number}','${c.common_name}','${c.issuer}','${c.valid_from}','${c.valid_to}','${c.fingerprint}','${c.status}')">👁 View</button>
+        <a class="btn btn-primary btn-sm" href="/api/user/download-cert/${c.id}">⬇ Download</a>
+        ${c.status==='valid'?`<button class="btn btn-warn btn-sm" onclick="renewCert(${c.id})">↻ Renew</button>`:''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function viewCert(id,serial,cn,issuer,from,to,fp,status) {
+  const now = new Date();
+  const exp = new Date(to);
+  const daysLeft = Math.ceil((exp-now)/86400000);
+  document.getElementById('cert-modal-content').innerHTML = `
+    <div class="cert-viewer">
+      <div style="border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px;">
+        <div style="font-size:14px;color:var(--accent2);margin-bottom:4px;">✓ X.509 Digital Certificate</div>
+        <div style="font-size:11px;color:var(--text-dim);">Version 3 | Issued by PKI Demo Authority</div>
+      </div>
+      <div style="font-weight:700;font-size:12px;color:var(--text-dim);margin-bottom:8px;letter-spacing:2px;">SUBJECT</div>
+      <div class="cert-field"><span class="cert-key">Common Name (CN)</span><span class="cert-val">${cn}</span></div>
+      <div class="cert-field"><span class="cert-key">Issuer</span><span class="cert-val">${issuer || 'PKI-CA Root'}</span></div>
+      <div style="font-weight:700;font-size:12px;color:var(--text-dim);margin:12px 0 8px;letter-spacing:2px;">VALIDITY</div>
+      <div class="cert-field"><span class="cert-key">Not Before</span><span class="cert-val">${fmtDateLong(from)}</span></div>
+      <div class="cert-field"><span class="cert-key">Not After</span><span class="cert-val">${fmtDateLong(to)}</span></div>
+      <div class="cert-field"><span class="cert-key">Days Remaining</span><span class="cert-val" style="color:${daysLeft<30?'var(--danger)':daysLeft<90?'var(--warn)':'var(--accent2)'};">${daysLeft > 0 ? daysLeft + ' days' : 'EXPIRED'}</span></div>
+      <div style="font-weight:700;font-size:12px;color:var(--text-dim);margin:12px 0 8px;letter-spacing:2px;">FINGERPRINT</div>
+      <div class="cert-field"><span class="cert-key">SHA-256</span><span class="cert-val" style="font-size:10px;word-break:break-all;">${fp || '—'}</span></div>
+      <div class="cert-field"><span class="cert-key">Serial Number</span><span class="cert-val" style="font-size:10px;">${serial}</span></div>
+      <div class="cert-field"><span class="cert-key">Status</span><span class="status status-${status}" style="font-size:11px;">${status.toUpperCase()}</span></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;">
+      <a href="/api/user/download-cert/${id}" class="btn btn-primary btn-sm">⬇ Download PEM</a>
+      <button onclick="document.getElementById('cert-modal').classList.add('hidden')" class="btn btn-ghost btn-sm">Close</button>
+    </div>
+  `;
+  document.getElementById('cert-modal').classList.remove('hidden');
+}
+
+async function renewCert(id) {
+  if (!confirm('Submit a renewal request for this certificate?')) return;
+  const d = await api(`/api/user/renew-cert/${id}`, 'POST');
+  showAlert('alert-certs', d.success ? 'success' : 'error', d.message || d.error);
+  if(d.success) loadStats();
+}
+
+async function loadStatus() {
+  const csrs = await api('/api/user/csr-status');
+  const tbody = document.getElementById('status-tbody');
+  if (!csrs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:32px;">No requests found</td></tr>'; return;
+  }
+  tbody.innerHTML = csrs.map(r => `
+    <tr>
+      <td><strong>${r.common_name || '—'}</strong></td>
+      <td>${r.organization || '—'}</td>
+      <td class="text-muted">${fmtDate(r.submitted_at)}</td>
+      <td><span class="status status-${r.status}">${r.status.replace('_',' ').toUpperCase()}</span></td>
+      <td class="text-muted" style="font-size:12px;">${r.ra_notes || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
+function fmtDateLong(d) { return d ? new Date(d).toLocaleString('en-IN',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
+
+loadStats();
+loadCerts();
+</script>
+{% endblock %}

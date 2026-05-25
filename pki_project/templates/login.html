@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PKI System — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#050a14; --surface:#0a1628; --surface2:#0f2040;
+  --accent:#00d4ff; --accent2:#00ff88; --warn:#ff6b35; --danger:#ff3366;
+  --text:#c8d8e8; --text-dim:#4a6080; --border:#1a3050;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body {
+  background:var(--bg); color:var(--text); font-family:'Exo 2',sans-serif;
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(0,255,136,0.04) 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(26,48,80,0.15) 40px, rgba(26,48,80,0.15) 41px),
+    repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(26,48,80,0.15) 40px, rgba(26,48,80,0.15) 41px);
+}
+.login-wrapper { width:100%; max-width:440px; padding:20px; }
+.logo-area { text-align:center; margin-bottom:40px; }
+.logo-shield {
+  width:80px; height:80px; margin:0 auto 16px;
+  background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,255,136,0.15));
+  border:2px solid rgba(0,212,255,0.4); border-radius:20px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:36px; box-shadow:0 0 40px rgba(0,212,255,0.2);
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}
+}
+.logo-title {
+  font-family:'Share Tech Mono',monospace; font-size:24px; letter-spacing:4px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.logo-sub { color:var(--text-dim); font-size:12px; letter-spacing:2px; margin-top:4px; text-transform:uppercase; }
+.login-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:16px;
+  padding:32px; position:relative; overflow:hidden;
+}
+.login-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+}
+.tabs { display:flex; gap:0; background:rgba(0,0,0,0.3); border-radius:8px; padding:4px; margin-bottom:24px; }
+.tab {
+  flex:1; padding:10px; text-align:center; border-radius:6px;
+  font-size:12px; font-weight:700; letter-spacing:1px; cursor:pointer;
+  transition:all 0.2s; color:var(--text-dim); background:none; border:none;
+  font-family:'Exo 2',sans-serif;
+}
+.tab.active { background:rgba(0,212,255,0.15); color:var(--accent); }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+.form-label {
+  display:block; font-size:11px; font-weight:700; letter-spacing:1.5px;
+  color:var(--text-dim); margin-bottom:6px; text-transform:uppercase;
+}
+.form-control {
+  width:100%; padding:11px 14px;
+  background:rgba(255,255,255,0.04); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-family:'Exo 2',sans-serif;
+  font-size:14px; transition:border-color 0.2s; margin-bottom:14px;
+}
+.form-control:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,212,255,0.1); }
+.form-control::placeholder { color:var(--text-dim); }
+.btn-login {
+  width:100%; padding:13px; border-radius:8px; border:none; cursor:pointer;
+  font-size:14px; font-weight:700; letter-spacing:2px;
+  background:linear-gradient(135deg,var(--accent),#0099cc); color:#fff;
+  font-family:'Exo 2',sans-serif; transition:all 0.2s; text-transform:uppercase;
+  margin-top:4px;
+}
+.btn-login:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(0,212,255,0.4); }
+.demo-accounts {
+  margin-top:24px; padding:16px; background:rgba(0,0,0,0.3);
+  border-radius:10px; border:1px solid var(--border);
+}
+.demo-title { font-size:11px; color:var(--text-dim); letter-spacing:1px; margin-bottom:10px; text-transform:uppercase; font-family:'Share Tech Mono',monospace; }
+.demo-account {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 10px; border-radius:6px; cursor:pointer;
+  transition:background 0.15s; margin-bottom:4px;
+}
+.demo-account:hover { background:rgba(0,212,255,0.07); }
+.demo-account .role {
+  font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;
+  font-family:'Share Tech Mono',monospace; letter-spacing:1px;
+}
+.role-ca { background:rgba(255,51,102,0.15); color:var(--danger); }
+.role-ra { background:rgba(255,107,53,0.15); color:var(--warn); }
+.role-user { background:rgba(0,255,136,0.1); color:var(--accent2); }
+.demo-creds { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-dim); }
+.alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+.alert-error { background:rgba(255,51,102,0.1); border:1px solid rgba(255,51,102,0.3); color:var(--danger); }
+.separator { height:1px; background:var(--border); margin:16px 0; text-align:center; }
+</style>
+</head>
+<body>
+<div class="login-wrapper">
+  <div class="logo-area">
+    <div class="logo-shield">🔐</div>
+    <div class="logo-title">PKI SYSTEM</div>
+    <div class="logo-sub">Public Key Infrastructure · Demo</div>
+  </div>
+  <div class="login-card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">LOGIN</button>
+      <button class="tab" onclick="switchTab('register')">REGISTER</button>
+    </div>
+    <div id="alert-area"></div>
+
+    <!-- LOGIN TAB -->
+    <div id="tab-login" class="tab-content active">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" id="login-user" class="form-control" placeholder="Enter username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="login-pass" class="form-control" placeholder="Enter password">
+      </div>
+      <button class="btn-login" onclick="doLogin()">ACCESS SYSTEM →</button>
+
+      <div class="demo-accounts">
+        <div class="demo-title">⚡ Quick Demo Access</div>
+        <div class="demo-account" onclick="fillLogin('ca_admin','ca123')">
+          <div><span class="role role-ca">CA</span> &nbsp;<span style="font-size:13px">Certificate Authority</span></div>
+          <div class="demo-creds">ca_admin / ca123</div>
+        </div>
+        <div class="demo-account" onclick="fillLogin('ra_admin','ra123')">
+          <div><span class="role role-ra">RA</span> &nbsp;<span style="font-size:13px">Registration Authority</span></div>
+          <div class="demo-creds">ra_admin / ra123</div>
+        </div>
+        <div class="demo-account" onclick="fillLogin('alice','alice123')">
+          <div><span class="role role-user">USER</span> &nbsp;<span style="font-size:13px">Alice Johnson</span></div>
+          <div class="demo-creds">alice / alice123</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGISTER TAB -->
+    <div id="tab-register" class="tab-content">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" id="reg-name" class="form-control" placeholder="Your full name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="reg-email" class="form-control" placeholder="email@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Organization</label>
+        <input type="text" id="reg-org" class="form-control" placeholder="Your organization">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" id="reg-user" class="form-control" placeholder="Choose username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="reg-pass" class="form-control" placeholder="Choose password">
+      </div>
+      <button class="btn-login" onclick="doRegister()" style="background:linear-gradient(135deg,var(--accent2),#00aa55);color:#000;">CREATE ACCOUNT →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['login','register'][i]===t));
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+}
+function fillLogin(u, p) {
+  document.getElementById('login-user').value = u;
+  document.getElementById('login-pass').value = p;
+}
+async function doLogin() {
+  const username = document.getElementById('login-user').value;
+  const password = document.getElementById('login-pass').value;
+  if (!username || !password) {
+    document.getElementById('alert-area').innerHTML = '<div class="alert alert-error">✗ Please enter credentials</div>'; return;
+  }
+  const r = await fetch('/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+  const d = await r.json();
+  if (d.success) {
+    const routes = {ca:'/ca/dashboard',ra:'/ra/dashboard',user:'/user/dashboard'};
+    window.location.href = routes[d.role] || '/user/dashboard';
+  } else {
+    document.getElementById('alert-area').innerHTML = `<div class="alert alert-error">✗ ${d.message}</div>`;
+  }
+}
+async function doRegister() {
+  const data = {
+    full_name: document.getElementById('reg-name').value,
+    email: document.getElementById('reg-email').value,
+    organization: document.getElementById('reg-org').value,
+    username: document.getElementById('reg-user').value,
+    password: document.getElementById('reg-pass').value,
+  };
+  if (!data.username || !data.password || !data.email || !data.full_name) {
+    document.getElementById('alert-area').innerHTML = '<div class="alert alert-error">✗ Please fill all fields</div>'; return;
+  }
+  const r = await fetch('/register', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  const d = await r.json();
+  if (d.success) {
+    document.getElementById('alert-area').innerHTML = '<div class="alert" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:#00ff88;">✓ Account created! You can now login.</div>';
+    setTimeout(()=>switchTab('login'), 1500);
+  } else {
+    document.getElementById('alert-area').innerHTML = `<div class="alert alert-error">✗ ${d.message}</div>`;
+  }
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+</script>
+</body>
+</html>
